@@ -1,0 +1,31 @@
+---
+import '@fontsource/barlow-condensed/latin-600.css';
+import '@fontsource/barlow-condensed/latin-700.css';
+import 'katex/dist/katex.min.css';
+import '../styles/notebook.css';
+interface Props { title: string }
+const { title } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta name="theme-color" content="#f8f5ed"/>
+    <link rel="icon" href="/course-mark.svg"/>
+    <title>{title} · CPU Physics Olympiad</title>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="shell masthead rail">
+      <a class="brand" href="/">
+        <img src="/course-mark.svg" width="40" height="40" alt=""/>
+        <span>CPU Physics<br/>Olympiad Course</span>
+      </a>
+      <nav aria-label="Main">
+        <a href="/classroom/">Classroom</a>
+      </nav>
+    </header>
+    <main class="shell" id="main"><slot/></main>
+  </body>
+</html>

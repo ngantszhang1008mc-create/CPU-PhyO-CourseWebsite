@@ -1,0 +1,49 @@
+.package-widget {
+  margin: 1.2rem 0;
+  padding: 1rem;
+  border: 1px solid var(--light-line);
+}
+.package-widget h4 {
+  margin: 0 0 0.6rem;
+  font: 700 1.15rem var(--display);
+}
+.package-frame {
+  max-width: 100%;
+  overflow: auto;
+}
+.package-frame svg {
+  display: block;
+  width: 100%;
+  max-height: 24rem;
+}
+.package-widget label {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.package-widget output {
+  font-variant-numeric: tabular-nums;
+}
+.package-widget input {
+  display: block;
+  width: 100%;
+  accent-color: #65835c;
+  min-height: 32px;
+}
+.package-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+}
+.package-presets button {
+  min-height: 34px;
+  padding: 0.2rem 0.6rem;
+}
+@media print {
+  .package-widget input,
+  .package-presets {
+    display: none;
+  }
+}

@@ -1,0 +1,27 @@
+node_modules/
+.astro/
+dist/
+.env
+.env.*
+!.env.example
+.DS_Store
+private-materials/
+private-drafts/
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
+# Private classroom packages, teaching materials and local database state
+*.cpu.json
+*.cpulesson
+*.phyo
+*.tex
+*.pdf
+*.pptx
+*.docx
+*.sqlite*
+*.db
+*.db-wal
+*.db-shm
+*.ses

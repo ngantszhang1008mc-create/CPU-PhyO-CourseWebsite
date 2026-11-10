@@ -1,0 +1,9 @@
+---
+import Notebook from '../layouts/Notebook.astro';
+import Classroom from '../components/classroom/Classroom';
+import '../styles/classroom.css';
+---
+<Notebook title="Classroom">
+  <Classroom client:load/>
+  <noscript>Please enable JavaScript to sign in and open your classroom.</noscript>
+</Notebook>

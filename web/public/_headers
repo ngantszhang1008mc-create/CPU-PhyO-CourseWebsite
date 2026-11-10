@@ -1,0 +1,12 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'
+
+/classroom/*
+  Cache-Control: private, no-store
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+
+/
+  Cache-Control: private, no-store
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
