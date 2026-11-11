@@ -106,6 +106,13 @@ export function initialize(db: Database, legacyPrimaryUsername?: string) {
   db.write(`CREATE TABLE IF NOT EXISTS attempts (
     bucket TEXT PRIMARY KEY, started INTEGER NOT NULL, count INTEGER NOT NULL)`);
   db.write('CREATE INDEX IF NOT EXISTS attempts_age ON attempts(started)');
+  db.write(`CREATE TABLE IF NOT EXISTS student_activity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, occurred INTEGER NOT NULL,
+    kind TEXT NOT NULL, title TEXT, number INTEGER, hint INTEGER)`);
+  db.write('CREATE INDEX IF NOT EXISTS activity_by_student ON student_activity(username,id)');
+  db.write(`CREATE TABLE IF NOT EXISTS activity_questions (
+    set_id TEXT NOT NULL, question_id TEXT NOT NULL, number INTEGER NOT NULL, choices INTEGER NOT NULL,
+    correct INTEGER, hints INTEGER NOT NULL, PRIMARY KEY (set_id,question_id))`);
   db.write(`CREATE TABLE IF NOT EXISTS lessons (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, revision INTEGER NOT NULL,
     questions_visible INTEGER NOT NULL, solutions_visible INTEGER NOT NULL)`);

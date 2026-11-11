@@ -2045,3 +2045,54 @@ test('manual recovery requests flag existing accounts without exposing their exi
   assert.equal(response.status, 200);
   assert.equal((await response.json()).account.resetRequested, undefined);
 });
+
+test('student activity belongs to the session, respects releases, and is private to admins', async () => {
+  const { call, bootstrap, db } = fixture();
+  const owner = await bootstrap();
+  async function add(username: string, role: string) {
+    const fields = { username, password: account.password };
+    await call('accounts', 'POST', { ...fields, role }, owner);
+    return cookieOf(await call('login', 'POST', fields));
+  }
+  const teacher = await add('teacher', 'admin');
+  const reader = await add('reader', 'student');
+  const other = await add('peer', 'student');
+  const history = (viewer: string, name = 'reader') => call('accounts/' + name + '/activity', 'GET', undefined, viewer);
+  const pkg = { ...lesson, questions: [{ ...lesson.questions[0], choices: ['first','second'] }],
+    solutions: [{ ...lesson.solutions[0], correct: 1 }] };
+  await call('sets', 'POST', pkg, owner);
+  const record = (action: string, revision: number, value?: number, username = 'reader') =>
+    call('sets/test-set/activity', 'POST', { username, question: 'test-q', action, revision, value }, reader);
+  const release = (revision: number, solutionsVisible: boolean) =>
+    call('sets/test-set','PATCH',{revision, questionsVisible: true, solutionsVisible},owner);
+  assert.equal((await record('question', 1)).status, 404);
+  await release(1, false);
+  await call('sets/test-set', 'GET', undefined, reader);
+  // Simulate a set uploaded before this feature.
+  db.write('DELETE FROM activity_questions');
+  assert.equal((await record('question', 2)).status, 200);
+  assert.equal((await record('check', 2, 0)).status, 403);
+  assert.equal((await record('hint', 2, 1)).status, 403);
+  await release(2, true);
+  assert.equal((await record('complete', 2)).status, 409);
+  assert.equal((await record('complete', 3, undefined, 'peer')).status, 403);
+  assert.equal((await record('hint', 3, 1)).status, 200);
+  assert.equal((await record('check', 3, 2)).status, 400);
+  for (const choice of [0,1]) assert.equal((await record('check', 3, choice)).status, 200);
+  for (const action of ['solution','complete','incomplete']) assert.equal((await record(action, 3)).status, 200);
+  for (const viewer of [reader,other]) assert.equal((await history(viewer)).status, 403);
+  assert.equal((await history('')).status, 401);
+  assert.equal((await history(teacher,'teacher')).status, 404);
+  for (const viewer of [teacher,owner]) {
+    const { entries } = await (await history(viewer)).json();
+    assert.deepEqual(entries.map((e: {kind:string})=>e.kind), ['incomplete','complete','solution','correct','incorrect','hint','question','set','signin']);
+    assert.equal(entries[5].hint, 1);
+    assert.equal(entries[3].title, lesson.title);
+    assert.equal(entries[3].number, 1);
+  }
+  const {accounts} = await (await call('accounts','GET',undefined,owner)).json();
+  const version = accounts.find((a:{username:string})=>a.username==='reader').version;
+  assert.equal((await call('accounts/reader','DELETE',{version},owner)).status,200);
+  await add('reader','student');
+  assert.equal((await (await history(owner)).json()).entries.length, 1);
+});

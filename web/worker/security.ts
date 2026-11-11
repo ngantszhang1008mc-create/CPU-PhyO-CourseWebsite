@@ -211,6 +211,7 @@ export function manageAccount(
 
   db.write('DELETE FROM sessions WHERE username=?', username);
   if (!update) {
+    db.write('DELETE FROM student_activity WHERE username=?', username);
     db.write('DELETE FROM users WHERE username=?', username);
     return { deleted: true };
   }
@@ -373,6 +374,8 @@ export async function login(db: Database, input: Record<string, unknown>) {
     )
       throw new HttpError(401, 'Invalid username or password.');
     storeSession(db, username, session.key);
+    if (record.role === 'student')
+      db.write("INSERT INTO student_activity (username,occurred,kind) VALUES (?,?,'signin')", username, Date.now());
   });
   return { user: publicUser(record), cookie: session.cookie };
 }
@@ -769,6 +772,8 @@ export async function register(
     db.write('DELETE FROM invites WHERE digest=?', key.hash);
     db.write('DELETE FROM signup_challenges WHERE invite_digest=?', key.hash);
     storeSession(db, username, session.key);
+    if (user.role === 'student')
+      db.write("INSERT INTO student_activity (username,occurred,kind) VALUES (?,?,'registered')", username, Date.now());
     return user;
   });
   return { user, cookie: session.cookie };

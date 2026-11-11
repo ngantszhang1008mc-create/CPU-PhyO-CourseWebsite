@@ -444,3 +444,27 @@
 .edit-block dialog .edit-actions {
   margin-top: 12px;
 }
+
+.student-activity {
+  margin-top: 8px;
+}
+.student-activity > div {
+  padding: 12px 0;
+}
+.student-activity h3 {
+  margin-bottom: 8px;
+}
+.student-activity ol {
+  list-style: none;
+  padding: 0;
+}
+.student-activity li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  border-bottom: 1px solid var(--light-line);
+  padding: 6px 0;
+}
+.student-activity time {
+  font-variant-numeric: tabular-nums;
+}

@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import katex from 'katex';
 import PackageWidget from '../PackageWidget';
 import type { Block, LessonPackage, Question, Solution } from '../../lib/lesson-package';
 import { save, useMode, useValue } from '../../lib/practice';
+import type { PracticeAction } from '../../lib/activity';
+import { courseApi } from '../../lib/classroom';
 import { Progress } from '../PracticeControls';
 
 function MathBlock({ tex }: { tex: string }) {
@@ -44,11 +46,13 @@ function Exercise({
   solution,
   index,
   prefix,
+  track,
 }: {
   question?: Question;
   solution?: Solution;
   index: number;
   prefix: string;
+  track: (action: PracticeAction, value?: number) => void;
 }) {
   const mode = useMode();
   const [choice, setChoice] = useState<number>();
@@ -63,6 +67,7 @@ function Exercise({
   const guide = mode === 'guide' || !question;
   const showSolution = guide ? guideExpanded : attempted && revealed;
   function submit() {
+    track('check', choice);
     setAttempted(true);
     if (question?.choices && choice === solution?.correct) save(key + ':done', 'yes');
   }
@@ -149,6 +154,7 @@ function Exercise({
                   aria-expanded={hint === i}
                   disabled={i > hints}
                   onClick={() => {
+                    if (hint !== i) track('hint', i + 1);
                     setHint(hint === i ? undefined : i);
                     setHints(Math.max(hints, i + 1));
                   }}
@@ -163,7 +169,11 @@ function Exercise({
             className="solution-toggle section-label"
             disabled={!guide && !attempted}
             aria-expanded={showSolution}
-            onClick={() => (guide ? setGuideExpanded(!guideExpanded) : setRevealed(!revealed))}
+            onClick={() => {
+              if (!showSolution) track('solution');
+              if (guide) setGuideExpanded(!guideExpanded);
+              else setRevealed(!revealed);
+            }}
           >
             Worked solution
           </button>
@@ -185,7 +195,10 @@ function Exercise({
       )}
       <div className="q-foot">
         <span>{question?.id ?? solution?.id}</span>
-        <button aria-pressed={done} onClick={() => save(key + ':done', done ? 'no' : 'yes')}>
+        <button aria-pressed={done} onClick={() => {
+          save(key + ':done', done ? 'no' : 'yes');
+          track(done ? 'incomplete' : 'complete');
+        }}>
           {done ? 'Completed' : 'Mark complete'}
         </button>
       </div>
@@ -196,14 +209,16 @@ function Exercise({
 export function SetReader({
   lesson,
   username,
+  studentRevision,
 }: {
   lesson: LessonPackage;
   username: string;
+  studentRevision?: number;
 }) {
   const ids = lesson.questions.length
     ? lesson.questions.map((q) => q.id)
     : lesson.solutions.map((s) => s.id);
-  const [selected, setSelected] = useState('');
+  const [selected, setSelected] = useState(() => new URLSearchParams(location.hash.slice(1)).get('q') ?? '');
   useEffect(() => {
     const change = () => setSelected(new URLSearchParams(location.hash.slice(1)).get('q') ?? '');
     change();
@@ -212,11 +227,23 @@ export function SetReader({
   }, []);
   const index = Math.max(0, ids.indexOf(selected));
   const id = ids[index];
+  const [activityError, setActivityError] = useState(false);
+  const track = useCallback((action: PracticeAction, value?: number) => {
+    if (!studentRevision) return;
+    void courseApi('sets/' + lesson.id + '/activity', {
+      method: 'POST',
+      keepalive: true,
+      body: JSON.stringify({ revision: studentRevision, username, question: id, action, value }),
+    }).catch(() => setActivityError(true));
+  }, [lesson.id, studentRevision, username, id]);
+  useEffect(() => { track('question'); }, [track]);
   const prefix = 'class:' + username + ':' + lesson.id;
   return (
     <div className="private-worksheet">
       <aside className="set-outline">
         <h2>{lesson.title}</h2>
+        {studentRevision && <small>Classroom admins can view your practice activity.</small>}
+        {activityError && <p role="status">Some activity could not be recorded. Refresh to reconnect.</p>}
         <Progress ids={ids.map((i) => prefix + ':' + i)} />
         <label>
           Go to question
@@ -239,6 +266,7 @@ export function SetReader({
           key={id}
           index={index}
           prefix={prefix}
+          track={track}
           question={lesson.questions.find((q) => q.id === id)}
           solution={lesson.solutions.find((s) => s.id === id)}
         />

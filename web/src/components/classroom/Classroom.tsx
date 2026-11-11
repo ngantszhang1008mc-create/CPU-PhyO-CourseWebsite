@@ -141,7 +141,7 @@ export default function Classroom() {
               onModify={() => { setNotice(''); setEditing(true); }} />
           )}
           {notice && <p role="status">{notice}</p>}
-          <SetReader lesson={detail.package} username={user.username} />
+          <SetReader lesson={detail.package} username={user.username} studentRevision={user.role === 'student' ? detail.set.revision : undefined} />
         </>
       ) : (
         <>

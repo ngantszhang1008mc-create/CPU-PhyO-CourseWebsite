@@ -1,5 +1,6 @@
 import { useEffect, useState, type SubmitEvent } from 'react';
 import { courseApi, explain, roleLabel, type CourseUser } from '../../lib/classroom';
+import { StudentActivity } from './StudentActivity';
 import { AccountRoleField, CreateAccount } from './CreateAccount';
 
 interface Account extends CourseUser {
@@ -125,6 +126,7 @@ function AccountRow({
             : account.recoveryEmailLinked ? 'Recovery email linked' : 'Manual password recovery'}
         </small>
       )}
+      {canManage && account.role === 'student' && <StudentActivity username={account.username} />}
       {canManage && account.mailIssue && <p className="course-error">{account.mailIssue}</p>}
       {canManage && account.resetRequested && (
         <p>

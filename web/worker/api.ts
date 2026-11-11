@@ -1,4 +1,5 @@
 import { MAX_PACKAGE_BYTES, parseLessonPackage } from '../src/lib/lesson-package.ts';
+import { indexActivityQuestions, recordPractice, studentHistory } from './activity.ts';
 import { initialize, readPart, storePart, type Database } from './storage.ts';
 import {
   beginAccessRequest,
@@ -245,6 +246,21 @@ export class CourseApi {
       success();
       return sessionResponse(session);
     }
+    const practicePath = /^\/api\/sets\/([a-z0-9-]+)\/activity$/.exec(pathname);
+    if (method === 'POST' && practicePath) {
+      const body = await readObject(request);
+      db.atomic(() => {
+        const student = currentUser(db, key);
+        if (!student || student.role !== 'student' || student.username !== body.username) throw new HttpError(403, 'Student access required.');
+        recordPractice(db, student.username, practicePath[1], body);
+      });
+      return json({ recorded: true });
+    }
+    const historyPath = /^\/api\/accounts\/([A-Za-z0-9._-]{3,48})\/activity$/.exec(pathname);
+    if (method === 'GET' && historyPath) {
+      requireAdmin();
+      return json(studentHistory(db, historyPath[1].toLowerCase(), new URL(request.url).searchParams.get('before')));
+    }
     const admin = user.role === 'admin';
     if (method !== 'GET' && !admin) throw new HttpError(403, 'Administrator access is required.');
     if (method === 'POST' && pathname === '/api/settings/mail/check') {
@@ -354,6 +370,9 @@ export class CourseApi {
         const row = this.lookup(id);
         if (!row || (!admin && !row.questions_visible && !row.solutions_visible))
           throw new HttpError(404, 'Problem set not found.');
+        if (!admin)
+          db.write("INSERT INTO student_activity (username,occurred,kind,title) VALUES (?,?,'set',?)",
+            user.username, Date.now(), row.title);
         return json({
           set: summary(row),
           package: {
@@ -406,6 +425,8 @@ export class CourseApi {
       this.db.write('DELETE FROM content WHERE id=?', pkg.id);
       storePart(this.db, pkg.id, 'questions', pkg.questions);
       storePart(this.db, pkg.id, 'solutions', pkg.solutions);
+      this.db.write('DELETE FROM activity_questions WHERE set_id=?', pkg.id);
+      indexActivityQuestions(this.db, pkg.id, pkg.questions, pkg.solutions);
       return summary(this.lookup(pkg.id)!);
     });
     return json({ set: info }, previous === null ? 201 : 200);
