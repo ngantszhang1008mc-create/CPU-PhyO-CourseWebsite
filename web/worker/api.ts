@@ -384,7 +384,8 @@ export class CourseApi {
           },
         });
       }
-      if (method === 'PUT') return this.savePackage(request, requireAdmin, id);
+      if (method === 'DELETE') return this.deleteSet(id, request.headers.get('If-Match'), requireAdmin);
+      if (method === 'PUT' || method === 'POST') return this.savePackage(request, requireAdmin, id);
       if (method === 'PATCH') return this.visibility(id, await readObject(request), requireAdmin);
     }
     throw new HttpError(404, 'Endpoint not found.');
@@ -394,7 +395,22 @@ export class CourseApi {
     return this.db.all<SetRow>('SELECT * FROM lessons WHERE id=?', id)[0];
   }
 
-  private async savePackage(request: Request, requireAdmin: () => User, editId?: string) {
+  private deleteSet(id: string, expected: string | null, requireAdmin: () => User) {
+    return this.db.atomic(() => {
+      requireAdmin();
+      const current = this.lookup(id);
+      if (!current) throw new HttpError(404, 'Problem set not found.');
+      if (expected !== '"' + current.revision + '"')
+        throw new HttpError(409, 'Refresh the set before deleting it.');
+      this.db.write('INSERT OR REPLACE INTO deleted_set_revisions VALUES (?,?)', id, current.revision);
+      this.db.write('DELETE FROM content WHERE id=?', id);
+      this.db.write('DELETE FROM activity_questions WHERE set_id=?', id);
+      this.db.write('DELETE FROM lessons WHERE id=?', id);
+      return json({ deleted: true });
+    });
+  }
+
+  private async savePackage(request: Request, requireAdmin: () => User, targetId?: string) {
     requireAdmin();
     const input = await readObject(request, MAX_PACKAGE_BYTES);
     let pkg;
@@ -403,31 +419,36 @@ export class CourseApi {
     } catch (error) {
       throw new HttpError(422, error instanceof Error ? error.message : 'Invalid lesson package.');
     }
-    if (editId && pkg.id !== editId) throw new HttpError(400, 'The problem set ID cannot change.');
+    const editing = request.method === 'PUT';
+    const id = targetId ?? pkg.id;
+    if (editing && pkg.id !== id) throw new HttpError(400, 'The problem set ID cannot change.');
     const previous = request.headers.get('If-Match');
     const info = this.db.atomic(() => {
       requireAdmin();
-      const current = this.lookup(pkg.id);
-      if (editId && !current) throw new HttpError(404, 'Problem set not found.');
+      const current = this.lookup(id);
+      if (targetId && !current) throw new HttpError(404, 'Problem set not found.');
       if ((current && previous !== `"${current.revision}"`) || (!current && previous !== null)) {
         throw new HttpError(409, 'The set revision has changed. Reopen the set to edit the latest version.');
       }
-      const revision = (current?.revision ?? 0) + 1;
+      // Continue the sequence if a deleted classroom ID is uploaded again.
+      const lastRevision = current?.revision ?? this.db.all<{revision: number}>(
+        'SELECT revision FROM deleted_set_revisions WHERE id=?', id)[0]?.revision ?? 0;
+      const revision = lastRevision + 1;
       this.db.write(
         `INSERT INTO lessons VALUES (?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET title=excluded.title, revision=excluded.revision, questions_visible=excluded.questions_visible, solutions_visible=excluded.solutions_visible`,
-        pkg.id,
+        id,
         pkg.title,
         revision,
-        editId ? current!.questions_visible : 0,
-        editId ? current!.solutions_visible : 0,
+        editing ? current!.questions_visible : 0,
+        editing ? current!.solutions_visible : 0,
       );
-      this.db.write('DELETE FROM content WHERE id=?', pkg.id);
-      storePart(this.db, pkg.id, 'questions', pkg.questions);
-      storePart(this.db, pkg.id, 'solutions', pkg.solutions);
-      this.db.write('DELETE FROM activity_questions WHERE set_id=?', pkg.id);
-      indexActivityQuestions(this.db, pkg.id, pkg.questions, pkg.solutions);
-      return summary(this.lookup(pkg.id)!);
+      this.db.write('DELETE FROM content WHERE id=?', id);
+      storePart(this.db, id, 'questions', pkg.questions);
+      storePart(this.db, id, 'solutions', pkg.solutions);
+      this.db.write('DELETE FROM activity_questions WHERE set_id=?', id);
+      indexActivityQuestions(this.db, id, pkg.questions, pkg.solutions);
+      return summary(this.lookup(id)!);
     });
     return json({ set: info }, previous === null ? 201 : 200);
   }

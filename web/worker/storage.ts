@@ -116,6 +116,7 @@ export function initialize(db: Database, legacyPrimaryUsername?: string) {
   db.write(`CREATE TABLE IF NOT EXISTS lessons (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, revision INTEGER NOT NULL,
     questions_visible INTEGER NOT NULL, solutions_visible INTEGER NOT NULL)`);
+  db.write('CREATE TABLE IF NOT EXISTS deleted_set_revisions (id TEXT PRIMARY KEY, revision INTEGER NOT NULL)');
   db.write(`CREATE TABLE IF NOT EXISTS content (
     id TEXT NOT NULL, part TEXT NOT NULL, seq INTEGER NOT NULL, bytes BLOB NOT NULL,
     PRIMARY KEY (id, part, seq))`);

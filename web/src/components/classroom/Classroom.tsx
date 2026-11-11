@@ -7,6 +7,7 @@ import { Password } from './Password';
 import { Login } from './Login';
 import { Management, Visibility } from './Management';
 import { ModeBar } from '../PracticeControls';
+import { SetPackageActions } from './PackageUpload';
 import { SetEditor } from './SetEditor';
 import { SetReader } from './SetReader';
 
@@ -140,6 +141,11 @@ export default function Classroom() {
             <Visibility key={detail.set.revision} info={detail.set} updated={refresh}
               onModify={() => { setNotice(''); setEditing(true); }} />
           )}
+          {user.role === 'admin' && <SetPackageActions key={detail.set.revision} info={detail.set}
+            onReplaced={async () => {
+              await refresh();
+              setNotice('Replacement saved privately. Set student visibility when ready.');
+            }} />}
           {notice && <p role="status">{notice}</p>}
           <SetReader lesson={detail.package} username={user.username} studentRevision={user.role === 'student' ? detail.set.revision : undefined} />
         </>

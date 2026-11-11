@@ -2096,3 +2096,41 @@ test('student activity belongs to the session, respects releases, and is private
   await add('reader','student');
   assert.equal((await (await history(owner)).json()).entries.length, 1);
 });
+
+test('targeted replacement and deletion respect roles, visibility and recreated revisions', async () => {
+  const { call, bootstrap, db } = fixture();
+  const primary = await bootstrap();
+  async function loginAs(role: 'student' | 'admin') {
+    const login = { username: 'package-' + role, password: account.password };
+    await call('accounts', 'POST', { ...login, role }, primary);
+    return cookieOf(await call('login', 'POST', login));
+  }
+  const teacher = await loginAs('admin');
+  const student = await loginAs('student');
+  const path = 'sets/' + lesson.id;
+  const other = { ...lesson, id: 'another-set', title: 'Updated package' };
+  const match = (revision: number) => ({ 'If-Match': '"' + revision + '"' });
+  await call('sets', 'POST', lesson, primary);
+  await call('sets', 'POST', other, primary);
+  await call(path, 'PATCH', { revision: 1, questionsVisible: true, solutionsVisible: true }, primary);
+  for (const method of ['POST', 'DELETE']) {
+    assert.equal((await call(path, method, other, student, match(2))).status, 403);
+    assert.equal((await call(path, method, other, '', match(2))).status, 401);
+    assert.equal((await call(path, method, other, teacher, match(1))).status, 409);
+  }
+  assert.equal((await call(path, 'POST', { ...other, solutions: [] }, teacher, match(2))).status, 422);
+  assert.equal((await call(path, 'GET', undefined, student)).status, 200);
+  const replacement = await call(path, 'POST', other, teacher, match(2));
+  assert.equal(replacement.status, 200);
+  assert.deepEqual((await replacement.json()).set, { id: lesson.id, title: other.title, revision: 3,
+    questionsVisible: false, solutionsVisible: false });
+  assert.equal((await call(path, 'GET', undefined, student)).status, 404);
+  assert.equal((await call(path, 'DELETE', undefined, teacher, match(3))).status, 200);
+  assert.equal((await call(path, 'GET', undefined, primary)).status, 404);
+  assert.equal(db.all('SELECT 1 FROM content WHERE id=?', lesson.id).length, 0);
+  assert.equal(db.all('SELECT 1 FROM activity_questions WHERE set_id=?', lesson.id).length, 0);
+  assert.equal((await (await call('sets/another-set', 'GET', undefined, primary)).json()).set.revision, 1);
+  const recreated = await call('sets', 'POST', lesson, primary);
+  assert.equal((await recreated.json()).set.revision, 4);
+  assert.equal((await call(path, 'DELETE', undefined, teacher, match(3))).status, 409);
+});

@@ -1,5 +1,5 @@
 import { useState, type SubmitEvent } from 'react';
-import { MAX_PACKAGE_BYTES } from '../../lib/lesson-package';
+import { PackageUpload } from './PackageUpload';
 import { courseApi, explain, type SetInfo } from '../../lib/classroom';
 
 import { QuickRegistration } from './QuickRegistration';
@@ -30,55 +30,6 @@ export function Management({
   const [customCode, setCustomCode] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'student'>('student');
   const [studentEmail, setStudentEmail] = useState('');
-  const [pending, setPending] = useState<{
-    raw: string;
-    title: string;
-    id: string;
-    revision?: number;
-  }>();
-  async function select(file?: File) {
-    setStatus('');
-    setPending(undefined);
-    if (!file) return;
-    try {
-      if (file.size > MAX_PACKAGE_BYTES) throw new Error('Choose a package of at most 6 MiB.');
-      const raw = await file.text();
-      const parsed = JSON.parse(raw);
-      if (
-        parsed?.format !== 'cpu-lesson-v1' ||
-        typeof parsed.id !== 'string' ||
-        typeof parsed.title !== 'string'
-      )
-        throw new Error('Choose a compiled CPU lesson package. See the package guide below.');
-      setPending({
-        raw,
-        id: parsed.id,
-        title: parsed.title,
-        revision: sets.find((s) => s.id === parsed.id)?.revision,
-      });
-    } catch (err) {
-      setStatus(explain(err));
-    }
-  }
-  async function upload() {
-    if (!pending) return;
-    setBusy(true);
-    setStatus('');
-    try {
-      await courseApi('sets', {
-        method: 'POST',
-        body: pending.raw,
-        headers: pending.revision ? { 'If-Match': '"' + pending.revision + '"' } : {},
-      });
-      setPending(undefined);
-      await refresh();
-      setStatus('Uploaded privately. Open the set to preview it and set student visibility.');
-    } catch (err) {
-      setStatus(explain(err));
-    } finally {
-      setBusy(false);
-    }
-  }
   async function makeInvite(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -130,29 +81,7 @@ export function Management({
         <section>
           <h3>Upload a problem set</h3>
           <p>Choose the compiled package from your React/TypeScript project.</p>
-          <input
-            type="file"
-            aria-label="Lesson package"
-            accept=".json,.cpulesson,.phyo,application/json"
-            disabled={busy}
-            onChange={(e) => {
-              void select(e.target.files?.[0]);
-              e.target.value = '';
-            }}
-          />
-          {pending && (
-            <div className="upload-confirm">
-              <p>
-                {pending.revision ? 'Replace' : 'Add'} <strong>{pending.title}</strong>
-                {pending.revision
-                  ? ' and hide the new revision until you release it.'
-                  : ' as a private draft.'}
-              </p>
-              <button disabled={busy} onClick={upload}>
-                {pending.revision ? 'Replace privately' : 'Upload privately'}
-              </button>
-            </div>
-          )}
+          <PackageUpload sets={sets} onSaved={refresh} />
           <a href="/course-package-guide.md" download>
             Download the agent package guide
           </a>
