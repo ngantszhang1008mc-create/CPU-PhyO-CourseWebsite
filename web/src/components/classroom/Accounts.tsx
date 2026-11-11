@@ -8,6 +8,7 @@ interface Account extends CourseUser {
   resetRequested?: boolean;
   mailIssue?: string;
   recoveryEmailLinked?: boolean;
+  cpuEmail?: string;
 }
 
 function AccountRow({
@@ -119,7 +120,9 @@ function AccountRow({
       </div>
       {canManage && account.role === 'student' && (
         <small>
-          {account.recoveryEmailLinked ? 'CPU recovery email linked' : 'Manual password recovery'}
+          {account.cpuEmail
+            ? <>CPU email <strong>{account.cpuEmail}</strong></>
+            : account.recoveryEmailLinked ? 'Recovery email linked' : 'Manual password recovery'}
         </small>
       )}
       {canManage && account.mailIssue && <p className="course-error">{account.mailIssue}</p>}

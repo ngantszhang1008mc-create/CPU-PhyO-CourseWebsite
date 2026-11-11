@@ -12,7 +12,7 @@ interface StoredUser extends Omit<User, 'isPrimary'> {
 }
 interface AccountRow extends StoredUser {
   reset_requested?: number;
-  email_linked?: number;
+  recovery_email: string | null;
   active: number;
   version: string;
 }
@@ -151,7 +151,10 @@ function accountSummary(row: AccountRow) {
   return {
     ...publicUser(row),
     active: Boolean(row.active),
-    ...(row.email_linked ? { recoveryEmailLinked: true } : {}),
+    ...(row.recovery_email ? { recoveryEmailLinked: true } : {}),
+    ...(row.role === 'student' && row.recovery_email && SCHOOL_EMAIL.test(row.recovery_email)
+      ? { cpuEmail: row.recovery_email }
+      : {}),
     ...(row.reset_requested ? { resetRequested: true } : {}),
     ...(row.reset_requested && row.reset_requested >= 2
       ? { mailIssue: mailIssues[deliveryReasons[row.reset_requested - 2]] }
@@ -163,7 +166,7 @@ function accountSummary(row: AccountRow) {
 export function listAccounts(db: Database) {
   return db
     .all<AccountRow>(
-      'SELECT username,role,active,version,is_primary,reset_requested,recovery_email IS NOT NULL AS email_linked FROM users ORDER BY username',
+      'SELECT username,role,active,version,is_primary,reset_requested,recovery_email FROM users ORDER BY username',
     )
     .map(accountSummary);
 }
@@ -177,7 +180,7 @@ function requireManagedAccount(
   if (typeof version !== 'string' || !/^[a-f0-9]{64}$/.test(version))
     throw new HttpError(400, 'Supply the current account version.');
   const target = db.all<AccountRow>(
-    'SELECT username,role,active,version,is_primary,reset_requested,recovery_email IS NOT NULL AS email_linked FROM users WHERE username=?',
+    'SELECT username,role,active,version,is_primary,reset_requested,recovery_email FROM users WHERE username=?',
     username,
   )[0];
   if (!target) throw new HttpError(404, 'Account not found.');

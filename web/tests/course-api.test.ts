@@ -1957,6 +1957,35 @@ test('student-number recovery delivers only to the verified school address and r
   );
 });
 
+test('admins can see stored CPU addresses only for students in the account directory', async () => {
+  const { db, call, bootstrap } = fixture();
+  const primary = await bootstrap();
+  const teacher = { username: 'teacher', password: account.password };
+  for (const [username, role, email] of [
+    [teacher.username, 'admin', classmateEmail],
+    ['linked', 'student', studentEmail],
+    ['external', 'student', 'fixture@example.com'],
+    ['manual', 'student', null],
+  ] as const) {
+    await call('accounts', 'POST', { username, password: account.password, role }, primary);
+    db.write('UPDATE users SET recovery_email=? WHERE username=?', email, username);
+  }
+  const ordinary = cookieOf(await call('login', 'POST', teacher));
+  for (const actor of [primary, ordinary]) {
+    const response = await call('accounts', 'GET', undefined, actor);
+    assert.equal(response.status, 200);
+    const { accounts } = await response.json();
+    for (const row of accounts) {
+      assert.equal(row.cpuEmail, row.username === 'linked' ? studentEmail : undefined);
+      assert.equal(row.recovery_email, undefined);
+    }
+    assert.ok(accounts.some((row: { cpuEmail?: string }) => row.cpuEmail === studentEmail));
+  }
+  const student = cookieOf(await call('login', 'POST', { username: 'linked', password: account.password }));
+  assert.equal((await call('accounts', 'GET', undefined, student)).status, 403);
+  assert.equal((await call('accounts')).status, 401);
+});
+
 test('manual recovery requests flag existing accounts without exposing their existence', async () => {
   const { call, bootstrap } = fixture();
   const admin = await bootstrap();
