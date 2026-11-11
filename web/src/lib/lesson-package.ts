@@ -270,7 +270,7 @@ function graphic(node: unknown, depth = 0): void {
   list(node.children, 0, 300, 'widget children');
   node.children.forEach((child) => graphic(child, depth + 1));
 }
-function block(value: unknown) {
+export function validateBlock(value: unknown): asserts value is Block {
   record(value, ['kind', 'value', 'src', 'alt', 'title', 'control', 'frames'], 'block');
   if (value.kind === 'text' || value.kind === 'math') {
     record(value, ['kind', 'value'], 'text or math block');
@@ -295,7 +295,7 @@ function block(value: unknown) {
 }
 function blocks(value: unknown) {
   list(value, 1, 160, 'content blocks');
-  value.forEach(block);
+  value.forEach(validateBlock);
 }
 export function parseLessonPackage(value: unknown): LessonPackage {
   record(value, ['format', 'id', 'title', 'questions', 'solutions'], 'lesson');

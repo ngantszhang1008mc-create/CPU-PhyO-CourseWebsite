@@ -345,7 +345,7 @@ export class CourseApi {
           sets: db.all<SetRow>('SELECT * FROM lessons' + where + ' ORDER BY title,id').map(summary),
         });
       }
-      if (method === 'POST') return this.upload(request, requireAdmin);
+      if (method === 'POST') return this.savePackage(request, requireAdmin);
     }
     const match = /^\/api\/sets\/([a-z0-9][a-z0-9-]*)$/.exec(pathname);
     if (match) {
@@ -365,6 +365,7 @@ export class CourseApi {
           },
         });
       }
+      if (method === 'PUT') return this.savePackage(request, requireAdmin, id);
       if (method === 'PATCH') return this.visibility(id, await readObject(request), requireAdmin);
     }
     throw new HttpError(404, 'Endpoint not found.');
@@ -374,7 +375,8 @@ export class CourseApi {
     return this.db.all<SetRow>('SELECT * FROM lessons WHERE id=?', id)[0];
   }
 
-  private async upload(request: Request, requireAdmin: () => User) {
+  private async savePackage(request: Request, requireAdmin: () => User, editId?: string) {
+    requireAdmin();
     const input = await readObject(request, MAX_PACKAGE_BYTES);
     let pkg;
     try {
@@ -382,20 +384,24 @@ export class CourseApi {
     } catch (error) {
       throw new HttpError(422, error instanceof Error ? error.message : 'Invalid lesson package.');
     }
+    if (editId && pkg.id !== editId) throw new HttpError(400, 'The problem set ID cannot change.');
     const previous = request.headers.get('If-Match');
     const info = this.db.atomic(() => {
       requireAdmin();
       const current = this.lookup(pkg.id);
+      if (editId && !current) throw new HttpError(404, 'Problem set not found.');
       if ((current && previous !== `"${current.revision}"`) || (!current && previous !== null)) {
-        throw new HttpError(409, 'The set revision has changed. Refresh before replacing it.');
+        throw new HttpError(409, 'The set revision has changed. Reopen the set to edit the latest version.');
       }
       const revision = (current?.revision ?? 0) + 1;
       this.db.write(
-        `INSERT INTO lessons VALUES (?,?,?,0,0)
-        ON CONFLICT(id) DO UPDATE SET title=excluded.title, revision=excluded.revision, questions_visible=0, solutions_visible=0`,
+        `INSERT INTO lessons VALUES (?,?,?,?,?)
+        ON CONFLICT(id) DO UPDATE SET title=excluded.title, revision=excluded.revision, questions_visible=excluded.questions_visible, solutions_visible=excluded.solutions_visible`,
         pkg.id,
         pkg.title,
         revision,
+        editId ? current!.questions_visible : 0,
+        editId ? current!.solutions_visible : 0,
       );
       this.db.write('DELETE FROM content WHERE id=?', pkg.id);
       storePart(this.db, pkg.id, 'questions', pkg.questions);

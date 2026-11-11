@@ -366,3 +366,81 @@
     grid-column: 1/-1;
   }
 }
+
+.visibility .modify-set {
+  margin-inline-start: auto;
+}
+.set-editor {
+  max-width: 54rem;
+  margin-inline: auto;
+}
+.edit-sheet, .edit-blocks {
+  display: grid;
+  gap: 12px;
+  min-inline-size: 0;
+  margin: 0;
+}
+.edit-sheet {
+  border: 0;
+  padding: 0;
+}
+.edit-sheet > legend {
+  font: 700 30px var(--display);
+  margin-bottom: 16px;
+}
+.edit-blocks {
+  padding: 12px 14px;
+  border: 1px solid var(--light-line);
+}
+.edit-blocks legend {
+  font: 600 20px var(--display);
+  padding-inline: 4px;
+}
+.edit-block textarea {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  margin-top: 5px;
+  padding: 8px;
+  background: var(--paper);
+  color: inherit;
+  border: 1px solid var(--line);
+  font: 16px var(--serif);
+}
+.edit-block img {
+  display: block;
+  max-width: 100%;
+  max-height: 12rem;
+}
+.edit-tags {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.edit-footer {
+  position: sticky;
+  bottom: 0;
+  padding-block: 10px;
+  background: var(--paper);
+  border-top: 1px solid var(--line);
+}
+.edit-block dialog {
+  width: min(42rem, 92vw);
+  max-height: 85vh;
+  margin: auto;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: inherit;
+  padding: 18px;
+}
+.edit-block dialog::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+.edit-block dialog .edit-actions {
+  margin-top: 12px;
+}

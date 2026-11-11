@@ -245,7 +245,7 @@ export function Management({
   );
 }
 
-export function Visibility({ info, updated }: { info: SetInfo; updated: () => Promise<void> }) {
+export function Visibility({ info, updated, onModify }: { info: SetInfo; updated: () => Promise<void>; onModify: () => void }) {
   const [questionsVisible, setQuestions] = useState(info.questionsVisible);
   const [solutionsVisible, setSolutions] = useState(info.solutionsVisible);
   const [busy, setBusy] = useState(false);
@@ -293,6 +293,7 @@ export function Visibility({ info, updated }: { info: SetInfo; updated: () => Pr
       >
         Save visibility
       </button>
+      <button type="button" className="modify-set" onClick={onModify} disabled={busy}>Modify problem set</button>
       {error && (
         <p className="course-error" role="alert">
           {error}

@@ -279,6 +279,41 @@ test('hidden content is filtered server-side on every read and replacement start
   assert.equal((await call('sets', 'POST', { ...lesson, format: 'other' }, admin)).status, 422);
 });
 
+test('admins edit released sets atomically at the current revision and retain visibility', async () => {
+  const { bootstrap, call } = fixture();
+  const owner = await bootstrap();
+  async function create(role: 'admin' | 'student') {
+    const login = { username: 'edit-' + role, password: account.password };
+    await call('accounts', 'POST', { ...login, role }, owner);
+    return cookieOf(await call('login', 'POST', login));
+  }
+  const teacher = await create('admin');
+  const student = await create('student');
+  const path = 'sets/' + lesson.id;
+  await call('sets', 'POST', lesson, owner);
+  await call(path, 'PATCH', { revision: 1, questionsVisible: true, solutionsVisible: false }, owner);
+  const changed = { ...lesson, title: 'Revised title',
+    questions: [{ ...lesson.questions[0], statement: [text('New statement')] }],
+    solutions: [{ ...lesson.solutions[0], answer: [text('New answer')] }],
+  };
+  const edit = (cookie: string, body: unknown, revision = 2) =>
+    call(path, 'PUT', body, cookie, { 'If-Match': '"' + revision + '"' });
+  assert.equal((await edit('', changed)).status, 401);
+  assert.equal((await edit(student, changed)).status, 403);
+  assert.equal((await edit(teacher, { ...changed, solutions: [] })).status, 422);
+  assert.equal((await edit(teacher, { ...changed, id: 'other' })).status, 400);
+  assert.equal((await call(path, 'PUT', changed, teacher)).status, 409);
+  assert.equal((await edit(teacher, changed)).status, 200);
+  assert.equal((await edit(owner, lesson)).status, 409);
+  const detail = await (await call(path, 'GET', undefined, owner)).json();
+  assert.deepEqual(detail.package, changed);
+  assert.deepEqual(detail.set, { id: lesson.id, title: changed.title, revision: 3,
+    questionsVisible: true, solutionsVisible: false });
+  const released = await (await call(path, 'GET', undefined, student)).json();
+  assert.deepEqual(released.package, { ...changed, solutions: [] });
+  assert.equal((await call('sets/missing', 'PUT', { ...changed, id: 'missing' }, owner)).status, 404);
+});
+
 test('password rotation and logout revoke cookies; invalid credentials are throttled', async () => {
   const { call, bootstrap } = fixture();
   const first = await bootstrap();

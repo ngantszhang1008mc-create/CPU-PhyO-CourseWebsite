@@ -7,6 +7,7 @@ import { Password } from './Password';
 import { Login } from './Login';
 import { Management, Visibility } from './Management';
 import { ModeBar } from '../PracticeControls';
+import { SetEditor } from './SetEditor';
 import { SetReader } from './SetReader';
 
 interface Loaded {
@@ -20,6 +21,8 @@ export default function Classroom() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [resetToken, setResetToken] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [notice, setNotice] = useState('');
   const [invite, setInvite] = useState('');
   const request = useRef(0);
 
@@ -112,7 +115,7 @@ export default function Classroom() {
       <header className="portal-top rail">
         <h1>{detail ? <a href="/classroom/">← Classroom</a> : 'Classroom'}</h1>
         <div>
-          {detail && <ModeBar />}
+          {detail && !editing && <ModeBar />}
           <span>
             {user.username} · {roleLabel(user)}
           </span>
@@ -122,11 +125,22 @@ export default function Classroom() {
         </div>
       </header>
       {error && <p role="alert">{error}</p>}
-      {detail ? (
+      {detail && editing && user.role === 'admin' ? (
+        <SetEditor lesson={detail.package} revision={detail.set.revision}
+          onCancel={() => setEditing(false)}
+          onSave={(set, pkg, questionId) => {
+            history.replaceState(null, '', '#q=' + questionId);
+            setLoaded({ ...loaded, detail: { set, package: pkg } });
+            setEditing(false);
+            setNotice('Changes saved.');
+          }} />
+      ) : detail ? (
         <>
           {user.role === 'admin' && (
-            <Visibility key={detail.set.revision} info={detail.set} updated={refresh} />
+            <Visibility key={detail.set.revision} info={detail.set} updated={refresh}
+              onModify={() => { setNotice(''); setEditing(true); }} />
           )}
+          {notice && <p role="status">{notice}</p>}
           <SetReader lesson={detail.package} username={user.username} />
         </>
       ) : (
