@@ -46,12 +46,14 @@ function Exercise({
   solution,
   index,
   prefix,
+  expandGuideInitially,
   track,
 }: {
   question?: Question;
   solution?: Solution;
   index: number;
   prefix: string;
+  expandGuideInitially: boolean;
   track: (action: PracticeAction, value?: number) => void;
 }) {
   const mode = useMode();
@@ -59,7 +61,7 @@ function Exercise({
   const [draft, setDraft] = useState('');
   const [attempted, setAttempted] = useState(false);
   const [revealed, setRevealed] = useState(false);
-  const [guideExpanded, setGuideExpanded] = useState(true);
+  const [guideExpanded, setGuideExpanded] = useState(expandGuideInitially);
   const [hints, setHints] = useState(0);
   const [hint, setHint] = useState<number>();
   const key = prefix + ':' + (question?.id ?? solution?.id);
@@ -266,6 +268,7 @@ export function SetReader({
           key={id}
           index={index}
           prefix={prefix}
+          expandGuideInitially={studentRevision === undefined}
           track={track}
           question={lesson.questions.find((q) => q.id === id)}
           solution={lesson.solutions.find((s) => s.id === id)}
